@@ -2,9 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const scene = new THREE.Scene();
-const dist2 = 1000;
+const dist2 = 200;
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, dist2);
-const fog = new THREE.FogExp2(0x222222, 0.00)
+const fog = new THREE.FogExp2(0x111111, 0.01)
 scene.fog = fog
 camera.position.z = 5;
 const renderer = new THREE.WebGLRenderer();
@@ -24,7 +24,7 @@ function resizeRenderer() {
 }
 resizeRenderer();
 document.body.appendChild(renderer.domElement);
-scene.background = new THREE.Color(0x222222);
+scene.background = new THREE.Color(0X111111);
 const spotlight = new THREE.SpotLight(0xffffff, 1, 25, Math.PI / 6, 0.45, 1);
 spotlight.position.set(0, 5, 0);
 spotlight.target.position.set(0, 0, 0);
@@ -124,9 +124,9 @@ function getPlacementPosition(targetObj = obj) {
 	const y = targetObj === 'light' ? camera.position.y + 1.29 : targetObj === 'floor' ? camera.position.y - 1.75 : targetObj === 'ceiling' ? camera.position.y + 1.6 : targetObj === 'door' ? camera.position.y - 0.1 : targetObj === 'window' ? camera.position.y - 0.1 : targetObj === 'statics' ? camera.position.y - 1.1 : targetObj === 'motion' ? (camera.position.y - 1.1/*needs to be dependent on the statics and motions */) : camera.position.y - 0.1;
 
 	return new THREE.Vector3(
-		Math.round(position.x),
+		Math.round(position.x * 2) / 2,
 		y,
-		Math.round(position.z)
+		Math.round(position.z * 2) / 2
 	);
 }
 
@@ -548,7 +548,7 @@ let staticst = 0
 let motiont = 0
 let colour3 = 0xffffff;
 function createSolid(x, y, z, xsize, ysize, zsize, hex, geometry = new THREE.BoxGeometry(xsize, ysize, zsize)) {
-	const material = new THREE.MeshPhongMaterial({ color: hex, shininess: 60 });
+	const material = new THREE.MeshPhongMaterial({ color: hex, shininess: 0 });
 	const object = new THREE.Mesh(geometry, material);
 	object.position.set(x, y, z);
 	object.userData.deletePreview = false;
