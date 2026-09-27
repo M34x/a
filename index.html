@@ -6,6 +6,7 @@
                 overflow: hidden;
                 margin: 0;
                 box-sizing: border-box;
+                z-index: -20;
             }
 
             html, body {
@@ -24,6 +25,7 @@
                 border: 2px solid black;
                 padding: 8px;
                 max-width: min(420px, 90vw);
+                font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
             }
             #placement-type {
                 position: fixed;
@@ -40,6 +42,17 @@
 
             #crosshair {
                 z-index: 11;
+            }
+            #version {
+                position: fixed;
+                color:white;
+                margin: 3px auto;
+                right: 3px;
+                bottom: 3px;
+                text-align: center;
+                padding: 8px;
+                z-index: 10;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             }
         </style>
         <link rel="icon" href="favicon-16x16.png" type="image/png">
@@ -93,6 +106,7 @@
         <div id="placement-type">
             <h2 id="placement"></h2>
         </div>
+        <div id="version">version 0.24</div>
         <script type="importmap">
             {
                 "imports": {
