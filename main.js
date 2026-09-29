@@ -574,7 +574,7 @@ const poss = {
 	curtain: 0,
 };
 
-
+//|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 const socket = new WebSocket('wss://phantomful.onrender.com');
 
 socket.addEventListener('open', () => {
@@ -612,8 +612,7 @@ function sendPacket(packet) {
   socket.send(JSON.stringify(packet));
 }
 sendPacket({ type: 'chat', message: 'test' });
-
-
+//|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 
 function place() {
@@ -833,6 +832,91 @@ function place() {
 		}
 	}
 }
+function sendObjToServer(position, type, color) {
+	const packet = {
+		type: 'placeObject',
+		position: { x: position.x, y: position.y, z: position.z },
+		objectType: type,
+		color: color,
+	};
+	sendPacket(packet);
+}
+function addObjAtPosition(position, type, color) {
+	if (type === 'wall') {
+		const wallGeometry = rot
+			? new THREE.BoxGeometry(0.5, 3, width + 0.5)
+			: new THREE.BoxGeometry(width + 0.5, 3, 0.5);
+		const wall = createSolid(position.x, position.y, position.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, color, wallGeometry);
+		wall.userData.baseColor = color;
+	} else if (type === 'light') {
+		const light = new THREE.PointLight(color, 1.5, 20);
+		light.position.copy(position);
+		scene.add(light);
+
+		const potLightMaterial = lightColour(color);
+		potLightMaterial.depthWrite = false;
+		potLightMaterial.depthTest = true;
+		const potLight = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.01, 32), potLightMaterial);
+		potLight.position.copy(position);
+		potLight.userData.baseColor = color;
+		scene.add(potLight);
+		potLight.userData.light = light;
+		light.userData.visual = potLight;
+		objects.push(potLight);
+		potLights.push(potLight);
+	} else if (type === 'floor') {
+		const floorGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
+		const floor = createSolid(position.x, position.y, position.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, color, floorGeometry);
+		floor.userData.baseColor = color;
+	} else if (type === 'ceiling') {
+		const ceilingGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
+		const ceiling = createSolid(position.x, position.y, position.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, color, ceilingGeometry);
+		ceiling.userData.baseColor = color;
+	} else if (type === 'door') {
+		const door = createDoorMesh(new THREE.MeshPhongMaterial({ color: color, shininess: 60 }));
+		door.position.copy(position);
+		door.userData.baseColor = color;
+		objects.push(door);
+		scene.add(door);
+	} else if (type === 'window') {
+		const windowMesh = createWindowMesh(new THREE.MeshPhongMaterial({ color: color, shininess: 60 }));
+		windowMesh.position.copy(position);
+		windowMesh.userData.baseColor = color;
+		objects.push(windowMesh);
+		scene.add(windowMesh);
+	} else if (type === 'statics') {
+		const mesh = createPlacedstatics(statics[staticst], color);
+		if (!mesh) return;
+		mesh.position.copy(position);
+		mesh.userData.type = statics[staticst];
+		mesh.userData.placementPos = position.clone();
+		mesh.userData.baseColor = color;
+		mesh.userData.deletePreview = false;
+		mesh.position.y += poss[statics[staticst]] ?? 0;
+		objects.push(mesh);
+		scene.add(mesh);
+	} else if (type === 'motion') {
+		const material = new THREE.MeshPhongMaterial({ color: color, shininess: 45, transparent: false });
+		const deco = makemotionMesh(motion[motiont], material);
+		deco.position.copy(position);
+		deco.userData.baseColor = color;
+		deco.userData.deletePreview = false;
+		objects.push(deco);
+		scene.add(deco);
+	}
+}
+socket.addEventListener('message', (event) => {
+	try {
+		const packet = JSON.parse(event.data);
+		if (packet.type === 'placeObject') {
+			const { position, objectType, color } = packet;
+			const posVector = new THREE.Vector3(position.x, position.y, position.z);
+			addObjAtPosition(posVector, objectType, color);
+		}
+	} catch (error) {
+		console.error('Error handling message:', error);
+	}
+});
 document.addEventListener('keydown', (e) => {
 	idleTime = 0
 	const key = e.key.toLowerCase();
@@ -929,7 +1013,7 @@ document.addEventListener('keydown', (e) => {
 	if(key === '.') {
 		camera.position.y -= 3
 	}
-	if (key === `z`) {
+	if (key === 'z') {
 		camera.position.y += 0.1875
 	}
 	if (key === 'x') {
