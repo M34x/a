@@ -15,10 +15,6 @@ app.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'packet-server' });
 });
 
-app.get('/health', (_req, res) => {
-  res.status(200).send('OK');
-});
-
 wss.on('connection', (socket) => {
   socket.isAlive = true;
 

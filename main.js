@@ -573,6 +573,49 @@ const poss = {
 	vase: 0,
 	curtain: 0,
 };
+
+
+const socket = new WebSocket('wss://phantomful.onrender.com');
+
+socket.addEventListener('open', () => {
+  console.log('bluetoth conekted');
+});
+socket.addEventListener('connection', () => {
+	const otherPlayers = [...wss.clients].filter(
+		client => client !== socket && client.readyState === WebSocket.OPEN
+	).length;
+});
+socket.addEventListener('message', (event) => {
+  try {
+    const packet = JSON.parse(event.data);
+    console.log('you got mail', packet);
+    // Handle the packet in your app here.
+  } catch (error) {
+    console.error('you suck', error);
+  }
+});
+
+socket.addEventListener('close', () => {
+  console.log('bye byeeee');
+});
+
+socket.addEventListener('error', (error) => {
+  console.error('btw u got an error:', error);
+});
+
+function sendPacket(packet) {
+  if (socket.readyState !== WebSocket.OPEN) {
+    console.error('btw u not konekted');
+    return;
+  }
+
+  socket.send(JSON.stringify(packet));
+}
+sendPacket({ type: 'chat', message: 'test' });
+
+
+
+
 function place() {
 	if (toggle) {
 		if (obj === modes[1]) {
@@ -790,7 +833,6 @@ function place() {
 		}
 	}
 }
-const raytracer = new THREE.Raycaster
 document.addEventListener('keydown', (e) => {
 	idleTime = 0
 	const key = e.key.toLowerCase();
