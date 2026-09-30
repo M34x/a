@@ -1147,6 +1147,7 @@ document.addEventListener('mousemove', (e) => {
 		camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
 	}
 	idleTime = 0
+	sendPlayerPosition();
 });
 let state = 1
 document.addEventListener('wheel', (e) => {
