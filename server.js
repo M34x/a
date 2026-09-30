@@ -12,8 +12,6 @@ const wss = new WebSocketServer({
 });
 const placedObjects = [];
 let activePlayers = 0;
-let emptyWorldTimer;
-const emptyWorldGraceMs = 15_000;
 
 function broadcastPresence(packet, excludedSocket) {
   const message = JSON.stringify(packet);
@@ -29,10 +27,6 @@ app.get('/', (_req, res) => {
 });
 
 wss.on('connection', (socket) => {
-  if (emptyWorldTimer) {
-    clearTimeout(emptyWorldTimer);
-    emptyWorldTimer = undefined;
-  }
   activePlayers += 1;
   socket.isAlive = true;
   console.log(`Player joined (${activePlayers} connected); sending ${placedObjects.length} saved objects`);
@@ -100,13 +94,8 @@ wss.on('connection', (socket) => {
     console.log(`Player left (${activePlayers} connected)`);
     broadcastPresence({ type: 'playerLeft', playerCount: activePlayers });
     if (activePlayers === 0) {
-      emptyWorldTimer = setTimeout(() => {
-        if (activePlayers === 0) {
-          console.log(`No players rejoined; clearing ${placedObjects.length} saved objects`);
-          placedObjects.length = 0;
-        }
-        emptyWorldTimer = undefined;
-      }, emptyWorldGraceMs);
+      console.log(`Last player left; clearing ${placedObjects.length} saved objects`);
+      placedObjects.length = 0;
     }
   });
 });
