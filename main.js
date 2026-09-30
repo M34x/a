@@ -66,21 +66,21 @@ function getCeilingGeometry() {
 	geometry.scale(width + 0.5, 1, width + 0.5);
 	return geometry;
 }
-function createDoorMesh(material) {
+	function createDoorMesh(material, objectWidth = width, objectRotation = rot) {
 	const door = new THREE.Group();
-	const sideDepth = (width - 0.5) / 2;
+	const sideDepth = (objectWidth - 0.5) / 2;
 	const sideY = camera.position.y - 1.6;
 	const topY = camera.position.y - 0.6;
-	const frameGeo = new THREE.Mesh(rot ? new THREE.BoxGeometry(0.5, 3, sideDepth) : new THREE.BoxGeometry(sideDepth, 3, 0.5), material);
+	const frameGeo = new THREE.Mesh(objectRotation ? new THREE.BoxGeometry(0.5, 3, sideDepth) : new THREE.BoxGeometry(sideDepth, 3, 0.5), material);
 	const leftFrame = frameGeo.clone();
-	leftFrame.position.set(rot ? 0 : -(width + 1.5) / 4, sideY, rot ? -(width + 1.5) / 4 : 0);
+	leftFrame.position.set(objectRotation ? 0 : -(objectWidth + 1.5) / 4, sideY, objectRotation ? -(objectWidth + 1.5) / 4 : 0);
 
 	const rightFrame = frameGeo.clone();
-	rightFrame.position.set(rot ? 0 : (width + 1.5) / 4, sideY, rot ? (width + 1.5) / 4 : 0);
+	rightFrame.position.set(objectRotation ? 0 : (objectWidth + 1.5) / 4, sideY, objectRotation ? (objectWidth + 1.5) / 4 : 0);
 
-	const topBeam = new THREE.Mesh(new THREE.BoxGeometry(!rot ? 1 : 0.5, 1, !rot ? 0.5 : 1), material);
+	const topBeam = new THREE.Mesh(new THREE.BoxGeometry(!objectRotation ? 1 : 0.5, 1, !objectRotation ? 0.5 : 1), material);
 	topBeam.position.set(0, topY, 0);
-	if (width > 1) {
+	if (objectWidth > 1) {
 		door.add(leftFrame, rightFrame);
 	}
 	door.add(topBeam);
@@ -88,25 +88,25 @@ function createDoorMesh(material) {
 	door.userData.baseColor = material && material.color ? material.color.getHex() : colour2;
 	return door;
 }
-function createWindowMesh(material) {
+	function createWindowMesh(material, objectWidth = width, objectRotation = rot) {
 	const window = new THREE.Group();
-	const sideDepth = (width - 0.5) / 2;
+	const sideDepth = (objectWidth - 0.5) / 2;
 	const sideY = camera.position.y - 1.6;
 	const topY = camera.position.y - 0.6;
 	const bottomY = camera.position.y - 2.6;
-	const frameGeo = new THREE.Mesh(rot ? new THREE.BoxGeometry(0.5, 3, sideDepth) : new THREE.BoxGeometry(sideDepth, 3, 0.5), material);
+	const frameGeo = new THREE.Mesh(objectRotation ? new THREE.BoxGeometry(0.5, 3, sideDepth) : new THREE.BoxGeometry(sideDepth, 3, 0.5), material);
 	const leftFrame = frameGeo.clone();
-	leftFrame.position.set(rot ? 0 : -(width + 1.5) / 4, sideY, rot ? -(width + 1.5) / 4 : 0);
+	leftFrame.position.set(objectRotation ? 0 : -(objectWidth + 1.5) / 4, sideY, objectRotation ? -(objectWidth + 1.5) / 4 : 0);
 
 	const rightFrame = frameGeo.clone();
-	rightFrame.position.set(rot ? 0 : (width + 1.5) / 4, sideY, rot ? (width + 1.5) / 4 : 0);
+	rightFrame.position.set(objectRotation ? 0 : (objectWidth + 1.5) / 4, sideY, objectRotation ? (objectWidth + 1.5) / 4 : 0);
 
-	const topBeam = new THREE.Mesh(new THREE.BoxGeometry(!rot ? 1 : 0.5, 1, !rot ? 0.5 : 1), material);
+	const topBeam = new THREE.Mesh(new THREE.BoxGeometry(!objectRotation ? 1 : 0.5, 1, !objectRotation ? 0.5 : 1), material);
 	topBeam.position.set(0, topY, 0);
 
-	const botBeam = new THREE.Mesh(new THREE.BoxGeometry(!rot ? 1 : 0.5, 1, !rot ? 0.5 : 1), material);
+	const botBeam = new THREE.Mesh(new THREE.BoxGeometry(!objectRotation ? 1 : 0.5, 1, !objectRotation ? 0.5 : 1), material);
 	botBeam.position.set(0, bottomY, 0);
-	if (width > 1) {
+	if (objectWidth > 1) {
 		window.add(leftFrame, rightFrame);
 	}
 	window.add(topBeam, botBeam);
@@ -299,7 +299,7 @@ function applystaticsMaterial(object, color, ghost = false) {
 	});
 }
 
-function clonestaticsModel(type, color, ghost = false) {
+function clonestaticsModel(type, color, ghost = false, rotation = staticsRot) {
 	const template = staticsLibrary[type];
 	if (!template) return null;
 
@@ -307,7 +307,7 @@ function clonestaticsModel(type, color, ghost = false) {
 	const scale = normalizestaticsScale(model.userData.scale ?? 1);
 	model.scale.set(scale.x, scale.y, scale.z);
 	applystaticsMaterial(model, color, ghost);
-	model.rotation.y = staticsRot * (Math.PI / 2);
+	model.rotation.y = rotation * (Math.PI / 2);
 	return model;
 }
 
@@ -324,14 +324,14 @@ function createstaticsGhost(type, color, position) {
 	return ghost;
 }
 
-function createPlacedstatics(type, color) {
-	const model = clonestaticsModel(type, color, false);
+function createPlacedstatics(type, color, rotation = staticsRot) {
+	const model = clonestaticsModel(type, color, false, rotation);
 	if (model) return model;
 	return createFallbackstaticsMesh(new THREE.MeshPhongMaterial({ color }), type === 'table' ? 1.1 : 0.8);
 }
-function makemotionMesh(type, mat) {
+function makemotionMesh(type, mat, rotation = staticsRot) {
 	const deco = new THREE.Group();
-	deco.rotation.y = staticsRot * (Math.PI / 2);
+	deco.rotation.y = rotation * (Math.PI / 2);
 	return deco;
 }
 const staticObjectYOffsets = Object.freeze({
@@ -575,45 +575,61 @@ const poss = {
 };
 
 //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-const socket = new WebSocket('wss://phantomful.onrender.com');
+const serverOverride = new URLSearchParams(window.location.search).get('server');
+const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || window.location.protocol === 'file:';
+const socketUrl = serverOverride || (isLocalHost
+	? `ws://${window.location.hostname || 'localhost'}:3000`
+	: 'wss://phantomful.onrender.com');
+console.log(`Connecting to placement server: ${socketUrl}`);
+const socket = new WebSocket(socketUrl);
+const pendingPackets = [];
 
 socket.addEventListener('open', () => {
-  console.log('bluetoth conekted');
-});
-socket.addEventListener('connection', () => {
-	const otherPlayers = [...wss.clients].filter(
-		client => client !== socket && client.readyState === WebSocket.OPEN
-	).length;
-});
-socket.addEventListener('message', (event) => {
-  try {
-    const packet = JSON.parse(event.data);
-    console.log('you got mail', packet);
-    // Handle the packet in your app here.
-  } catch (error) {
-    console.error('you suck', error);
-  }
+	while (pendingPackets.length > 0) {
+		socket.send(JSON.stringify(pendingPackets.shift()));
+	}
+	console.log(`Connected to placement server: ${socketUrl}`);
 });
 
-socket.addEventListener('close', () => {
-  console.log('bye byeeee');
+socket.addEventListener('close', (event) => {
+	console.log(`Placement server disconnected (code ${event.code})`);
 });
 
 socket.addEventListener('error', (error) => {
-  console.error('btw u got an error:', error);
+	console.error(`Placement server connection failed: ${socketUrl}`, error);
 });
 
 function sendPacket(packet) {
-  if (socket.readyState !== WebSocket.OPEN) {
-    console.error('btw u not konekted');
-    return;
-  }
+	if (socket.readyState === WebSocket.CONNECTING) {
+		pendingPackets.push(packet);
+		return true;
+	}
+	if (socket.readyState !== WebSocket.OPEN) {
+		console.error('Could not send packet; placement server is not connected:', packet.type);
+		return false;
+	}
 
-  socket.send(JSON.stringify(packet));
+	socket.send(JSON.stringify(packet));
+	return true;
 }
-sendPacket({ type: 'chat', message: 'test' });
 //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
+function removePlacedObject(object, notifyServer = false) {
+	if (!object) return;
+	if (notifyServer && object.userData.networkId) {
+		sendPacket({ type: 'deleteObject', id: object.userData.networkId });
+	}
+	if (object.userData.light) {
+		if (object.userData.light.userData.visual) scene.remove(object.userData.light.userData.visual);
+		scene.remove(object.userData.light);
+	}
+	if (object.userData.visual) scene.remove(object.userData.visual);
+	scene.remove(object);
+	const objectIndex = objects.indexOf(object);
+	if (objectIndex !== -1) objects.splice(objectIndex, 1);
+	const lightIndex = potLights.indexOf(object);
+	if (lightIndex !== -1) potLights.splice(lightIndex, 1);
+}
 
 function place() {
 	if (toggle) {
@@ -623,10 +639,7 @@ function place() {
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					if (existing.userData.light) scene.remove(existing.userData.light);
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -645,6 +658,7 @@ function place() {
 			const potLight = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.01, 32), potLightMaterial);
 			potLight.position.copy(pos);
 			potLight.userData.baseColor = colour3;
+			potLight.userData.networkId = sendObjToServer('light', pos, colour3);
 			scene.add(potLight);
 			potLight.userData.light = light;
 			light.userData.visual = potLight;
@@ -656,9 +670,7 @@ function place() {
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -672,15 +684,15 @@ function place() {
 				: new THREE.BoxGeometry(width + 0.5, 3, 0.5);
 			const wall = createSolid(pos.x, pos.y, pos.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, colour2, wallGeometry);
 			wall.userData.baseColor = colour2;
+			wall.userData.type = 'wall';
+			wall.userData.networkId = sendObjToServer('wall', pos, colour2, { width, rotation: rot });
 		} else if (obj === modes[2]/* floor */) {
 			const pos = getPlacementPosition('floor');
 			const existing = findObjectAt(pos);
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -692,15 +704,15 @@ function place() {
 			const floorGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
 			const floor = createSolid(pos.x, pos.y, pos.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, colour2, floorGeometry);
 			floor.userData.baseColor = colour2;
+			floor.userData.type = 'floor';
+			floor.userData.networkId = sendObjToServer('floor', pos, colour2, { width });
 		} else if (obj === modes[3]/* ceiling */) {
 			const pos = getPlacementPosition('ceiling');
 			const existing = findObjectAt(pos);
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -712,15 +724,15 @@ function place() {
 			const ceilingGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
 			const ceiling = createSolid(pos.x, pos.y, pos.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, colour2, ceilingGeometry);
 			ceiling.userData.baseColor = colour2;
+			ceiling.userData.type = 'ceiling';
+			ceiling.userData.networkId = sendObjToServer('ceiling', pos, colour2, { width });
 		} else if (obj === modes[4]/* door */) {
 			const pos = getPlacementPosition('door');
 			const existing = findObjectAt(pos);
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -732,6 +744,8 @@ function place() {
 			const door = createDoorMesh(new THREE.MeshPhongMaterial({ color: colour2, shininess: 60 }));
 			door.position.copy(pos);
 			door.userData.baseColor = colour2;
+			door.userData.type = 'door';
+			door.userData.networkId = sendObjToServer('door', pos, colour2, { width, rotation: rot });
 			objects.push(door);
 			scene.add(door);
 		} else if (obj === modes[5]/* window */) {
@@ -740,9 +754,7 @@ function place() {
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -754,6 +766,8 @@ function place() {
 			const windowMesh = createWindowMesh(new THREE.MeshPhongMaterial({ color: colour2, shininess: 60 }));
 			windowMesh.position.copy(pos);
 			windowMesh.userData.baseColor = colour2;
+			windowMesh.userData.type = 'window';
+			windowMesh.userData.networkId = sendObjToServer('window', pos, colour2, { width, rotation: rot });
 			objects.push(windowMesh);
 			scene.add(windowMesh);
 		} else if (obj === modes[6]/* statics */) {
@@ -764,9 +778,7 @@ function place() {
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -783,6 +795,7 @@ function place() {
 			mesh.userData.baseColor = colour2;
 			mesh.userData.deletePreview = false;
 			mesh.position.y += poss[type] ?? 0;
+			mesh.userData.networkId = sendObjToServer('statics', adjustedPos, colour2, { variant: type, rotation: staticsRot });
 			objects.push(mesh);
 			scene.add(mesh);
 		} else if (obj === modes[7]/* motion */) {
@@ -791,9 +804,7 @@ function place() {
 
 			if (existing) {
 				if (existing.userData.deletePreview) {
-					scene.remove(existing);
-					const index = objects.indexOf(existing);
-					if (index !== -1) objects.splice(index, 1);
+					removePlacedObject(existing, true);
 					return;
 				}
 
@@ -807,22 +818,13 @@ function place() {
 			deco.position.copy(pos);
 			deco.userData.baseColor = colour2;
 			deco.userData.deletePreview = false;
+			deco.userData.networkId = sendObjToServer('motion', pos, colour2, { variant: motion[motiont], rotation: staticsRot });
 			objects.push(deco);
 			scene.add(deco);
 		} else if (obj === modes[8]/* delete */) {
 			const existing = getDeleteTargetFromCrosshair();
 			if (!existing) return;
-			if (existing.userData.light) {
-				scene.remove(existing.userData.light);
-				const lightIndex = potLights.indexOf(existing);
-				if (lightIndex !== -1) potLights.splice(lightIndex, 1);
-			}
-			if (existing.userData.visual) {
-				scene.remove(existing.userData.visual);
-			}
-			scene.remove(existing);
-			const index = objects.indexOf(existing);
-			if (index !== -1) objects.splice(index, 1);
+			removePlacedObject(existing, true);
 		} else if (obj === modes[9]/* colourpicker */) {
 			const pos = getPlacementPosition(obj);
 			const existing = findObjectAt(pos);
@@ -832,91 +834,130 @@ function place() {
 		}
 	}
 }
-function sendObjToServer(position, type, color) {
-	const packet = {
+function sendObjToServer(objectType, position, color, details = {}) {
+	const id = crypto.randomUUID();
+	sendPacket({
 		type: 'placeObject',
+		objectType,
 		position: { x: position.x, y: position.y, z: position.z },
-		objectType: type,
-		color: color,
-	};
-	sendPacket(packet);
+		color,
+		...details,
+		id,
+	});
+	return id;
 }
-function addObjAtPosition(position, type, color) {
-	if (type === 'wall') {
-		const wallGeometry = rot
-			? new THREE.BoxGeometry(0.5, 3, width + 0.5)
-			: new THREE.BoxGeometry(width + 0.5, 3, 0.5);
-		const wall = createSolid(position.x, position.y, position.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, color, wallGeometry);
-		wall.userData.baseColor = color;
-	} else if (type === 'light') {
+
+function addObjAtPosition(position, objectType, color, details = {}) {
+	if (!position || !['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion'].includes(objectType)) return;
+	const pos = new THREE.Vector3(position.x, position.y, position.z);
+	const objectWidth = details.width ?? width;
+	const objectRotation = details.rotation ?? false;
+	if (objectType === 'wall') {
+		const wallGeometry = objectRotation
+			? new THREE.BoxGeometry(0.5, 3, objectWidth + 0.5)
+			: new THREE.BoxGeometry(objectWidth + 0.5, 3, 0.5);
+		const wall = createSolid(pos.x, pos.y, pos.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, color, wallGeometry);
+		wall.userData.type = objectType;
+		wall.userData.networkId = details.id;
+	} else if (objectType === 'light') {
 		const light = new THREE.PointLight(color, 1.5, 20);
-		light.position.copy(position);
+		light.position.copy(pos);
 		scene.add(light);
 
 		const potLightMaterial = lightColour(color);
 		potLightMaterial.depthWrite = false;
 		potLightMaterial.depthTest = true;
 		const potLight = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.01, 32), potLightMaterial);
-		potLight.position.copy(position);
+		potLight.position.copy(pos);
 		potLight.userData.baseColor = color;
+		potLight.userData.type = objectType;
+		potLight.userData.networkId = details.id;
 		scene.add(potLight);
 		potLight.userData.light = light;
 		light.userData.visual = potLight;
 		objects.push(potLight);
 		potLights.push(potLight);
-	} else if (type === 'floor') {
-		const floorGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
-		const floor = createSolid(position.x, position.y, position.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, color, floorGeometry);
+	} else if (objectType === 'floor') {
+		const floorGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.5, objectWidth + 0.5);
+		const floor = createSolid(pos.x, pos.y, pos.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, color, floorGeometry);
 		floor.userData.baseColor = color;
-	} else if (type === 'ceiling') {
-		const ceilingGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
-		const ceiling = createSolid(position.x, position.y, position.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, color, ceilingGeometry);
+		floor.userData.type = objectType;
+		floor.userData.networkId = details.id;
+	} else if (objectType === 'ceiling') {
+		const ceilingGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.5, objectWidth + 0.5);
+		const ceiling = createSolid(pos.x, pos.y, pos.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, color, ceilingGeometry);
 		ceiling.userData.baseColor = color;
-	} else if (type === 'door') {
-		const door = createDoorMesh(new THREE.MeshPhongMaterial({ color: color, shininess: 60 }));
-		door.position.copy(position);
+		ceiling.userData.type = objectType;
+		ceiling.userData.networkId = details.id;
+	} else if (objectType === 'door') {
+		const door = createDoorMesh(new THREE.MeshPhongMaterial({ color, shininess: 60 }), objectWidth, objectRotation);
+		door.position.copy(pos);
 		door.userData.baseColor = color;
+		door.userData.type = objectType;
+		door.userData.networkId = details.id;
 		objects.push(door);
 		scene.add(door);
-	} else if (type === 'window') {
-		const windowMesh = createWindowMesh(new THREE.MeshPhongMaterial({ color: color, shininess: 60 }));
-		windowMesh.position.copy(position);
+	} else if (objectType === 'window') {
+		const windowMesh = createWindowMesh(new THREE.MeshPhongMaterial({ color, shininess: 60 }), objectWidth, objectRotation);
+		windowMesh.position.copy(pos);
 		windowMesh.userData.baseColor = color;
+		windowMesh.userData.type = objectType;
+		windowMesh.userData.networkId = details.id;
 		objects.push(windowMesh);
 		scene.add(windowMesh);
-	} else if (type === 'statics') {
-		const mesh = createPlacedstatics(statics[staticst], color);
+	} else if (objectType === 'statics') {
+		const variant = details.variant;
+		if (!statics.includes(variant)) return;
+		const mesh = createPlacedstatics(variant, color, details.rotation ?? 0);
 		if (!mesh) return;
-		mesh.position.copy(position);
-		mesh.userData.type = statics[staticst];
-		mesh.userData.placementPos = position.clone();
+		mesh.position.copy(pos);
+		mesh.userData.type = variant;
+		mesh.userData.placementPos = pos.clone();
 		mesh.userData.baseColor = color;
 		mesh.userData.deletePreview = false;
-		mesh.position.y += poss[statics[staticst]] ?? 0;
+		mesh.userData.networkId = details.id;
+		mesh.position.y += poss[variant] ?? 0;
 		objects.push(mesh);
 		scene.add(mesh);
-	} else if (type === 'motion') {
+	} else if (objectType === 'motion') {
+		const variant = details.variant;
+		if (!motion.includes(variant)) return;
 		const material = new THREE.MeshPhongMaterial({ color: color, shininess: 45, transparent: false });
-		const deco = makemotionMesh(motion[motiont], material);
-		deco.position.copy(position);
+		const deco = makemotionMesh(variant, material, details.rotation ?? 0);
+		deco.position.copy(pos);
 		deco.userData.baseColor = color;
+		deco.userData.type = objectType;
 		deco.userData.deletePreview = false;
+		deco.userData.networkId = details.id;
 		objects.push(deco);
 		scene.add(deco);
 	}
 }
+
 socket.addEventListener('message', (event) => {
 	try {
 		const packet = JSON.parse(event.data);
 		if (packet.type === 'placeObject') {
-			const { position, objectType, color } = packet;
-			const posVector = new THREE.Vector3(position.x, position.y, position.z);
-			addObjAtPosition(posVector, objectType, color);
+			addObjAtPosition(packet.position, packet.objectType, packet.color, packet);
+		} else if (packet.type === 'worldState' && Array.isArray(packet.objects)) {
+			console.log(`Received world snapshot with ${packet.objects.length} object(s)`);
+			packet.objects.forEach((placedObject) => {
+				addObjAtPosition(placedObject.position, placedObject.objectType, placedObject.color, placedObject);
+			});
+		} else if (packet.type === 'deleteObject') {
+			const object = objects.find((entry) => entry.userData.networkId === packet.id);
+			if (object) removePlacedObject(object);
+		} else if (packet.type === 'playerJoined') {
+			console.log(`Another player joined (${packet.playerCount} connected)`);
+		} else if (packet.type === 'playerLeft') {
+			console.log(`Another player left (${packet.playerCount} connected)`);
 		}
-	} catch (error) {
-		console.error('Error handling message:', error);
+	}
+	catch (error) {
+		console.error('Error handling placement packet:', error);
 	}
 });
+
 document.addEventListener('keydown', (e) => {
 	idleTime = 0
 	const key = e.key.toLowerCase();

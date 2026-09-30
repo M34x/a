@@ -10,13 +10,34 @@ const wss = new WebSocketServer({
   server,
   maxPayload: 1024 * 1024,
 });
+const placedObjects = [];
+let activePlayers = 0;
+let emptyWorldTimer;
+const emptyWorldGraceMs = 15_000;
+
+function broadcastPresence(packet, excludedSocket) {
+  const message = JSON.stringify(packet);
+  for (const client of wss.clients) {
+    if (client !== excludedSocket && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
 
 app.get('/', (_req, res) => {
   res.json({ status: 'ok', service: 'packet-server' });
 });
 
 wss.on('connection', (socket) => {
+  if (emptyWorldTimer) {
+    clearTimeout(emptyWorldTimer);
+    emptyWorldTimer = undefined;
+  }
+  activePlayers += 1;
   socket.isAlive = true;
+  console.log(`Player joined (${activePlayers} connected); sending ${placedObjects.length} saved objects`);
+  socket.send(JSON.stringify({ type: 'worldState', objects: placedObjects }));
+  broadcastPresence({ type: 'playerJoined', playerCount: activePlayers }, socket);
 
   socket.on('pong', () => {
     socket.isAlive = true;
@@ -37,11 +58,34 @@ wss.on('connection', (socket) => {
       return;
     }
 
-    // Relay packets to all connected clients, including the sender.
+    if (packet.type === 'deleteObject') {
+      if (typeof packet.id !== 'string') {
+        console.warn('Ignored deleteObject packet without an object ID');
+        return;
+      }
+      const objectIndex = placedObjects.findIndex((object) => object.id === packet.id);
+      if (objectIndex === -1) {
+        console.warn(`Ignored deleteObject for unknown ID: ${packet.id}`);
+        return;
+      }
+      placedObjects.splice(objectIndex, 1);
+      console.log(`Deleted object ${packet.id}; ${placedObjects.length} saved`);
+    } else if (packet.type === 'placeObject') {
+      if (typeof packet.id !== 'string') {
+        console.warn('Ignored placeObject packet without an object ID');
+        return;
+      }
+      placedObjects.push(packet);
+      console.log(`Stored ${packet.objectType || 'object'} ${packet.id}; ${placedObjects.length} saved`);
+    } else {
+      return;
+    }
+
+    // Relay packets to every client except the sender, which already applied its local action.
     const outgoing = JSON.stringify(packet);
 
     for (const client of wss.clients) {
-      if (client.readyState === WebSocket.OPEN) {
+      if (client !== socket && client.readyState === WebSocket.OPEN) {
         client.send(outgoing);
       }
     }
@@ -49,6 +93,21 @@ wss.on('connection', (socket) => {
 
   socket.on('error', (error) => {
     console.error('WebSocket error:', error.message);
+  });
+
+  socket.on('close', () => {
+    activePlayers -= 1;
+    console.log(`Player left (${activePlayers} connected)`);
+    broadcastPresence({ type: 'playerLeft', playerCount: activePlayers });
+    if (activePlayers === 0) {
+      emptyWorldTimer = setTimeout(() => {
+        if (activePlayers === 0) {
+          console.log(`No players rejoined; clearing ${placedObjects.length} saved objects`);
+          placedObjects.length = 0;
+        }
+        emptyWorldTimer = undefined;
+      }, emptyWorldGraceMs);
+    }
   });
 });
 
