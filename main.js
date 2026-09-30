@@ -573,7 +573,32 @@ const poss = {
 	vase: 0,
 	curtain: 0,
 };
+let playerGeo = new THREE.BoxGeometry(0.7, 1.6, 0.7);
+const remotePlayers = new Map();
 
+function updateRemotePlayer(packet) {
+	if (typeof packet.playerId !== 'string' || !packet.position) return;
+	const { x, y, z } = packet.position;
+	if (![x, y, z].every(Number.isFinite)) return;
+
+	let player = remotePlayers.get(packet.playerId);
+	if (!player) {
+		player = new THREE.Mesh(playerGeo, new THREE.MeshPhongMaterial({ color: 0xff5555 }));
+		remotePlayers.set(packet.playerId, player);
+		scene.add(player);
+	}
+
+	player.position.set(x, y - 0.8, z);
+	player.rotation.y = Number.isFinite(packet.rotation) ? packet.rotation : 0;
+}
+
+function removeRemotePlayer(playerId) {
+	const player = remotePlayers.get(playerId);
+	if (!player) return;
+	scene.remove(player);
+	player.material.dispose();
+	remotePlayers.delete(playerId);
+}
 //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 const serverOverride = new URLSearchParams(window.location.search).get('server');
 const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname) || window.location.protocol === 'file:';
@@ -589,6 +614,7 @@ socket.addEventListener('open', () => {
 		socket.send(JSON.stringify(pendingPackets.shift()));
 	}
 	console.log(`Connected to placement server: ${socketUrl}`);
+	sendPlayerPosition();
 });
 
 socket.addEventListener('close', (event) => {
@@ -611,6 +637,14 @@ function sendPacket(packet) {
 
 	socket.send(JSON.stringify(packet));
 	return true;
+}
+
+function sendPlayerPosition() {
+	sendPacket({
+		type: 'playerPosition',
+		position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+		rotation: camera.rotation.y,
+	});
 }
 //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
@@ -863,7 +897,6 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		const light = new THREE.PointLight(color, 1.5, 20);
 		light.position.copy(pos);
 		scene.add(light);
-
 		const potLightMaterial = lightColour(color);
 		potLightMaterial.depthWrite = false;
 		potLightMaterial.depthTest = true;
@@ -947,9 +980,14 @@ socket.addEventListener('message', (event) => {
 		} else if (packet.type === 'deleteObject') {
 			const object = objects.find((entry) => entry.userData.networkId === packet.id);
 			if (object) removePlacedObject(object);
+		} else if (packet.type === 'playerState' && Array.isArray(packet.players)) {
+			packet.players.forEach(updateRemotePlayer);
+		} else if (packet.type === 'playerPosition') {
+			updateRemotePlayer(packet);
 		} else if (packet.type === 'playerJoined') {
 			console.log(`Another player joined (${packet.playerCount} connected)`);
 		} else if (packet.type === 'playerLeft') {
+			removeRemotePlayer(packet.playerId);
 			console.log(`Another player left (${packet.playerCount} connected)`);
 		}
 	}
@@ -959,6 +997,9 @@ socket.addEventListener('message', (event) => {
 });
 
 document.addEventListener('keydown', (e) => {
+	if (idleTime >= 3000) {
+		console.log("You are no longer idle")
+	}
 	idleTime = 0
 	const key = e.key.toLowerCase();
 	keys[key] = true;
@@ -1175,18 +1216,22 @@ function animate() {
 		direction.y = 0;
 		direction.normalize();
 		camera.position.add(((keys['a'] && !keys['d']) || keys['d'] && !keys['a'] ? direction.multiplyScalar(diag) : direction.multiplyScalar(0.05 * moveSpeed)));
+		sendPlayerPosition();
 	}
 	if(keys['s']) {
 		const direction = new THREE.Vector3(0, 0, sprint ? 3 : 1).applyQuaternion(camera.quaternion);
 		direction.y = 0;
 		direction.normalize();
 		camera.position.add(((keys['a'] && !keys['d']) || keys['d'] && !keys['a'] ? direction.multiplyScalar(diag) : direction.multiplyScalar(0.05 * moveSpeed)));
+		sendPlayerPosition();
 	}
 	if(keys['a']) {
 		camera.position.add((keys['w'] && !keys['s'] || keys['s'] && !keys['w'] ? new THREE.Vector3(-diag, 0, 0) : new THREE.Vector3(-0.05 * moveSpeed, 0, 0)).applyQuaternion(camera.quaternion));
+		sendPlayerPosition();
 	}
 	if(keys['d']) {
 		camera.position.add((keys['w'] && !keys['s'] || keys['s'] && !keys['w'] ? new THREE.Vector3(diag, 0, 0) : new THREE.Vector3(0.05 * moveSpeed, 0, 0)).applyQuaternion(camera.quaternion));
+		sendPlayerPosition();
 	}
 	if(toggle) {
 		ghostObject();

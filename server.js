@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('node:http');
+const { randomUUID } = require('node:crypto');
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
 
@@ -11,6 +12,7 @@ const wss = new WebSocketServer({
   maxPayload: 1024 * 1024,
 });
 const placedObjects = [];
+const playerPositions = new Map();
 let activePlayers = 0;
 
 function broadcastPresence(packet, excludedSocket) {
@@ -27,11 +29,16 @@ app.get('/', (_req, res) => {
 });
 
 wss.on('connection', (socket) => {
+  socket.playerId = randomUUID();
   activePlayers += 1;
   socket.isAlive = true;
   console.log(`Player joined (${activePlayers} connected); sending ${placedObjects.length} saved objects`);
   socket.send(JSON.stringify({ type: 'worldState', objects: placedObjects }));
-  broadcastPresence({ type: 'playerJoined', playerCount: activePlayers }, socket);
+  socket.send(JSON.stringify({
+    type: 'playerState',
+    players: Array.from(playerPositions, ([playerId, state]) => ({ playerId, ...state })),
+  }));
+  broadcastPresence({ type: 'playerJoined', playerId: socket.playerId, playerCount: activePlayers }, socket);
 
   socket.on('pong', () => {
     socket.isAlive = true;
@@ -52,7 +59,25 @@ wss.on('connection', (socket) => {
       return;
     }
 
-    if (packet.type === 'deleteObject') {
+    if (packet.type === 'playerPosition') {
+      const { position, rotation } = packet;
+      if (
+        !position ||
+        ![position.x, position.y, position.z].every(Number.isFinite) ||
+        (rotation !== undefined && !Number.isFinite(rotation))
+      ) {
+        socket.send(JSON.stringify({ type: 'error', message: 'Player position must contain finite coordinates.' }));
+        return;
+      }
+
+      const state = {
+        position: { x: position.x, y: position.y, z: position.z },
+        rotation: Number.isFinite(rotation) ? rotation : 0,
+      };
+      playerPositions.set(socket.playerId, state);
+      broadcastPresence({ type: 'playerPosition', playerId: socket.playerId, ...state }, socket);
+      return;
+    } else if (packet.type === 'deleteObject') {
       if (typeof packet.id !== 'string') {
         console.warn('Ignored deleteObject packet without an object ID');
         return;
@@ -90,9 +115,10 @@ wss.on('connection', (socket) => {
   });
 
   socket.on('close', () => {
+    playerPositions.delete(socket.playerId);
     activePlayers -= 1;
     console.log(`Player left (${activePlayers} connected)`);
-    broadcastPresence({ type: 'playerLeft', playerCount: activePlayers });
+    broadcastPresence({ type: 'playerLeft', playerId: socket.playerId, playerCount: activePlayers });
     if (activePlayers === 0) {
       console.log(`Last player left; clearing ${placedObjects.length} saved objects`);
       placedObjects.length = 0;
