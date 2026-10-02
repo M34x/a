@@ -1116,6 +1116,7 @@ document.addEventListener('keydown', (e) => {
 	if (key === 'k') {
 		place()
 	}
+	sendPlayerPosition();
 });
 document.addEventListener('keyup', (e) => {
 	const key = e.key.toLowerCase();
