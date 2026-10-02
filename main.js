@@ -47,8 +47,8 @@ const hitbox = new THREE.Mesh(new THREE.BoxGeometry(.7, 1.8, .7), mat2)
 const stairHitbox = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.7), mat2)
 function moveHitbox() {
 	hitbox.position.set(camera.position.x, camera.position.y - 0.8, camera.position.z);
-	stairHitbox.position.set(hitbox.position.copy())
-	stairHitbox.position.y -= 0.8 + 0.19
+	stairHitbox.position.copy(hitbox.position);
+	stairHitbox.position.y -= 0.8 + 0.19;
 }
 function getWallGeometry() {
 	const length = width + 0.5;
@@ -1254,10 +1254,10 @@ function animate() {
 	if (!toggle) document.getElementById("placement-type").style.display = 'none'; else document.getElementById("placement-type").style.display = 'block';
 	idleTime++
 	document.getElementById("coordinates").innerHTML = `
-		X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)} <br>
-		Total Objects: ${objects.length}
-		Players: ${remotePlayers.size + 1}
-		Lights: ${lights.length}
+		X: ${camera.position.x.toFixed(2)},<br> Y: ${camera.position.y.toFixed(2)},<br> Z: ${camera.position.z.toFixed(2)} <br>
+		Total Objects: ${objects.length} <br>
+		Players: ${remotePlayers.size + 1} <br>
+		Lights: ${lights.length} <br>
 	`;
 	renderer.render(scene, camera);
 }
