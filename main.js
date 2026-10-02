@@ -42,7 +42,14 @@ const ghosts = [];
 let width = 2;
 let colour2 = 0x00ff00;
 let obj = 'wall';
-
+const mat2 = new THREE.Material({})
+const hitbox = new THREE.Mesh(new THREE.BoxGeometry(.7, 1.8, .7), mat2)
+const stairHitbox = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.7), mat2)
+function moveHitbox() {
+	hitbox.position.set(camera.position.x, camera.position.y - 0.8, camera.position.z);
+	stairHitbox.position.set(hitbox.position.copy())
+	stairHitbox.position.y -= 0.8 + 0.19
+}
 function getWallGeometry() {
 	const length = width + 0.5;
 	const geometry = rot
@@ -573,7 +580,7 @@ const poss = {
 	vase: 0,
 	curtain: 0,
 };
-let playerGeo = new THREE.BoxGeometry(0.7, 1.6, 0.7);
+let playerGeo = new THREE.BoxGeometry(0.7, 1.8, 0.7);
 const remotePlayers = new Map();
 
 function updateRemotePlayer(packet) {
@@ -608,7 +615,6 @@ const socketUrl = serverOverride || (isLocalHost
 console.log(`Connecting to placement server: ${socketUrl}`);
 const socket = new WebSocket(socketUrl);
 const pendingPackets = [];
-
 socket.addEventListener('open', () => {
 	while (pendingPackets.length > 0) {
 		socket.send(JSON.stringify(pendingPackets.shift()));
@@ -1145,8 +1151,8 @@ document.addEventListener('mousemove', (e) => {
 		camera.rotation.y -= e.movementX * 0.002 * sens;
 		camera.rotation.x -= e.movementY * 0.002 * sens;
 		camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+		idleTime = 0
 	}
-	idleTime = 0
 	sendPlayerPosition();
 });
 let state = 1
@@ -1234,6 +1240,7 @@ function animate() {
 		camera.position.add((keys['w'] && !keys['s'] || keys['s'] && !keys['w'] ? new THREE.Vector3(diag, 0, 0) : new THREE.Vector3(0.05 * moveSpeed, 0, 0)).applyQuaternion(camera.quaternion));
 		sendPlayerPosition();
 	}
+	moveHitbox()
 	if(toggle) {
 		ghostObject();
 	}
@@ -1246,7 +1253,12 @@ function animate() {
 	document.getElementById("placement").innerHTML = obj == modes[0] ? "Placing Walls" : obj == modes[1] ? "Placing Lights" : obj == modes[2] ? "Placing Floors" : obj == modes[3] ? "Placing Ceilings" : obj == modes[4] ? "Placing Doors" : obj == modes[5] ? "Placing Windows" : obj == modes[6] && statics[staticst] == 'chair' ? "Placing Chairs" : obj == modes[6] && statics[staticst] == 'table' ? "Placing Tables" : obj == modes[6] && (statics[staticst] == 'stair' || statics[staticst] == 'stairs') ? "Placing Stairs" : obj == modes[6] ? "i didnt maek these yet awawa" : obj == modes[7] ? "these just straight up dont work sry" : obj == modes[8] ? "Deleting" : obj == modes[9] ? "yea nah im too lazy for ts" : "this text shouldnt even be showing rn whaaaaa"
 	if (!toggle) document.getElementById("placement-type").style.display = 'none'; else document.getElementById("placement-type").style.display = 'block';
 	idleTime++
-
+	document.getElementById("coordinates").innerHTML = `
+		X: ${camera.position.x.toFixed(2)}, Y: ${camera.position.y.toFixed(2)}, Z: ${camera.position.z.toFixed(2)} <br>
+		Total Objects: ${objects.length}
+		Players: ${remotePlayers.size + 1}
+		Lights: ${lights.length}
+	`;
 	renderer.render(scene, camera);
 }
 animate();
