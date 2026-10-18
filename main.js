@@ -886,7 +886,19 @@ function sendObjToServer(objectType, position, color, details = {}) {
 	});
 	return id;
 }
-
+let fps = 0;
+let fpsLastTime = performance.now();
+let fpsFrameCount = 0;
+function getFps(timestamp = performance.now()) {
+	fpsFrameCount++;
+	const elapsed = timestamp - fpsLastTime;
+	if (elapsed >= 1000) {
+		fps = Math.round((fpsFrameCount * 1000) / elapsed);
+		fpsFrameCount = 0;
+		fpsLastTime = timestamp;
+	}
+	return fps;
+}
 function addObjAtPosition(position, objectType, color, details = {}) {
 	if (!position || !['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion'].includes(objectType)) return;
 	const pos = new THREE.Vector3(position.x, position.y, position.z);
@@ -1189,7 +1201,9 @@ let idleTime = 0
 let sprint = true
 camera.position.y = 1.6
 keys['shift'] = false
-function animate() {
+let ver = '0.36'
+document.getElementById('version').innerHTML = `v${ver}`
+function animate(timestamp) {
 	requestAnimationFrame(animate);
 	updatePotLightVisibility();
 	updateGhostLightVisibility();
@@ -1274,6 +1288,7 @@ function animate() {
 		Total Objects: ${objects.length}, <br>
 		Players: ${remotePlayers.size + 1}, <br>
 		Lights: ${lights.length}, <br>
+		Fps: ${getFps(timestamp)}
 	`;
 	renderer.render(scene, camera);
 }
