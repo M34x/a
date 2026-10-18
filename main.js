@@ -64,16 +64,16 @@ function getWallGeometry() {
 	return geometry;
 }
 function getFloorGeometry() {
-	const geometry = new THREE.BoxGeometry(1, 0.5, 1);
+	const geometry = new THREE.BoxGeometry(1, 0.175, 1);
 	geometry.scale(width + 0.5, 1, width + 0.5);
 	return geometry;
 }
 function getCeilingGeometry() {
-	const geometry = new THREE.BoxGeometry(1, 0.5, 1);
+	const geometry = new THREE.BoxGeometry(1, 0.175, 1);
 	geometry.scale(width + 0.5, 1, width + 0.5);
 	return geometry;
 }
-	function createDoorMesh(material, objectWidth = width, objectRotation = rot) {
+function createDoorMesh(material, objectWidth = width, objectRotation = rot) {
 	const door = new THREE.Group();
 	const sideDepth = (objectWidth - 0.5) / 2;
 	const sideY = camera.position.y - 1.6;
@@ -95,7 +95,7 @@ function getCeilingGeometry() {
 	door.userData.baseColor = material && material.color ? material.color.getHex() : colour2;
 	return door;
 }
-	function createWindowMesh(material, objectWidth = width, objectRotation = rot) {
+function createWindowMesh(material, objectWidth = width, objectRotation = rot) {
 	const window = new THREE.Group();
 	const sideDepth = (objectWidth - 0.5) / 2;
 	const sideY = camera.position.y - 1.6;
@@ -128,7 +128,7 @@ function getPlacementPosition(targetObj = obj) {
 
 	const distance = 3 * Math.cos(camera.rotation.x);
 	const position = camera.position.clone().addScaledVector(forward, distance);
-	const y = targetObj === 'light' ? camera.position.y + 1.29 : targetObj === 'floor' ? camera.position.y - 1.75 : targetObj === 'ceiling' ? camera.position.y + 1.6 : targetObj === 'door' ? camera.position.y - 0.1 : targetObj === 'window' ? camera.position.y - 0.1 : targetObj === 'statics' ? camera.position.y - 1.1 : targetObj === 'motion' ? (camera.position.y - 1.1/*needs to be dependent on the statics and motions */) : camera.position.y - 0.1;
+	const y = targetObj === 'light' ? camera.position.y + 1.29 : targetObj === 'floor' ? camera.position.y - 1.5875 : targetObj === 'ceiling' ? camera.position.y + 1.4125 : targetObj === 'door' ? camera.position.y - 0.1 : targetObj === 'window' ? camera.position.y - 0.1 : targetObj === 'statics' ? camera.position.y - 1.1 : targetObj === 'motion' ? (camera.position.y - 1.1/*needs to be dependent on the statics and motions */) : camera.position.y - 0.1;
 
 	return new THREE.Vector3(
 		Math.round(position.x * 2) / 2,
@@ -375,7 +375,7 @@ function ghostObject() {
 		const ghost = new THREE.Mesh(getWallGeometry(), ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 	if (obj === 'light') {
@@ -390,7 +390,7 @@ function ghostObject() {
 		ghosts.push(ghost);
 		scene.add(ghost);
 	}
-	if(obj === 'floor') {
+	if (obj === 'floor') {
 		const pos = getPlacementPosition('floor');
 		if (objectExistsAt(pos)) return;
 
@@ -399,7 +399,7 @@ function ghostObject() {
 		const ghost = new THREE.Mesh(getFloorGeometry(), ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 	if (obj === 'ceiling') {
@@ -411,7 +411,7 @@ function ghostObject() {
 		const ghost = new THREE.Mesh(getCeilingGeometry(), ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 	if (obj === 'door') {
@@ -423,7 +423,7 @@ function ghostObject() {
 		const ghost = createDoorMesh(ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 	if (obj === 'window') {
@@ -435,7 +435,7 @@ function ghostObject() {
 		const ghost = createWindowMesh(ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 	if (obj === 'statics') {
@@ -457,7 +457,7 @@ function ghostObject() {
 		const ghost = makemotionMesh(motion[motiont], ghostMaterial);
 		ghost.position.copy(pos);
 		ghosts.push(ghost);
-		
+
 		scene.add(ghost);
 	}
 
@@ -470,15 +470,15 @@ function hexToHsl(hex) {
 	const l = (max + min) / 2;
 	if (max === min) return [0, 0, l * 100];
 	const d = max - min;
-	const s = l > 0.5? d / (2 - max - min) : d / (max + min);
+	const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 	let h;
-	if (max === r) h = (g - b) / d + (g < b? 6 : 0);
+	if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
 	else if (max === g) h = (b - r) / d + 2;
 	else h = (r - g) / d + 4;
 	return [h * 60, s * 100, l * 100];
 }
 function hslToHex(h, s, l) {
-s /= 100; l /= 100;
+	s /= 100; l /= 100;
 	const k = n => (n + h / 30) % 12;
 	const a = s * Math.min(l, 1 - l);
 	const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
@@ -567,8 +567,8 @@ function createSolid(x, y, z, xsize, ysize, zsize, hex, geometry = new THREE.Box
 const poss = {
 	chair: 0,
 	table: 0,
-	stair: -0.3,
-	stairs: -0.4,
+	stair: -0.375,
+	stairs: -0.475,
 	bench: 0,
 	stool: 0,
 	rug: 0,
@@ -673,7 +673,29 @@ function removePlacedObject(object, notifyServer = false) {
 
 function place() {
 	if (toggle) {
-		if (obj === modes[1]) {
+		if (obj === modes[0]) {
+			const pos = getPlacementPosition('wall');
+			const existing = findObjectAt(pos);
+
+			if (existing) {
+				if (existing.userData.deletePreview) {
+					removePlacedObject(existing, true);
+					return;
+				}
+
+				setWallColour(existing, 0xff0000);
+				existing.userData.deletePreview = true;
+				return;
+			}
+
+			const wallGeometry = rot
+				? new THREE.BoxGeometry(0.5, 3, width + 0.5)
+				: new THREE.BoxGeometry(width + 0.5, 3, 0.5);
+			const wall = createSolid(pos.x, pos.y, pos.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, colour2, wallGeometry);
+			wall.userData.baseColor = colour2;
+			wall.userData.type = 'wall';
+			wall.userData.networkId = sendObjToServer('wall', pos, colour2, { width, rotation: rot });
+		} else if (obj === modes[1]) {
 			const pos = getPlacementPosition('light');
 			const existing = findObjectAt(pos);
 
@@ -704,28 +726,6 @@ function place() {
 			light.userData.visual = potLight;
 			objects.push(potLight);
 			potLights.push(potLight);
-		} else if (obj === modes[0]) {
-			const pos = getPlacementPosition('wall');
-			const existing = findObjectAt(pos);
-
-			if (existing) {
-				if (existing.userData.deletePreview) {
-					removePlacedObject(existing, true);
-					return;
-				}
-
-				setWallColour(existing, 0xff0000);
-				existing.userData.deletePreview = true;
-				return;
-			}
-
-			const wallGeometry = rot
-				? new THREE.BoxGeometry(0.5, 3, width + 0.5)
-				: new THREE.BoxGeometry(width + 0.5, 3, 0.5);
-			const wall = createSolid(pos.x, pos.y, pos.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, colour2, wallGeometry);
-			wall.userData.baseColor = colour2;
-			wall.userData.type = 'wall';
-			wall.userData.networkId = sendObjToServer('wall', pos, colour2, { width, rotation: rot });
 		} else if (obj === modes[2]/* floor */) {
 			const pos = getPlacementPosition('floor');
 			const existing = findObjectAt(pos);
@@ -741,7 +741,7 @@ function place() {
 				return;
 			}
 
-			const floorGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
+			const floorGeometry = new THREE.BoxGeometry(width + 0.5, 0.175, width + 0.5);
 			const floor = createSolid(pos.x, pos.y, pos.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, colour2, floorGeometry);
 			floor.userData.baseColor = colour2;
 			floor.userData.type = 'floor';
@@ -753,7 +753,7 @@ function place() {
 			if (existing) {
 				if (existing.userData.deletePreview) {
 					removePlacedObject(existing, true);
-					return;
+					return; 
 				}
 
 				setWallColour(existing, 0xff0000);
@@ -761,7 +761,7 @@ function place() {
 				return;
 			}
 
-			const ceilingGeometry = new THREE.BoxGeometry(width + 0.5, 0.5, width + 0.5);
+			const ceilingGeometry = new THREE.BoxGeometry(width + 0.5, 0.175, width + 0.5);
 			const ceiling = createSolid(pos.x, pos.y, pos.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, colour2, ceilingGeometry);
 			ceiling.userData.baseColor = colour2;
 			ceiling.userData.type = 'ceiling';
@@ -853,7 +853,7 @@ function place() {
 				return;
 			}
 
-			const material = new THREE.MeshPhongMaterial({ color: colour2, shininess: 45, transparent: false});
+			const material = new THREE.MeshPhongMaterial({ color: colour2, shininess: 45, transparent: false });
 			const deco = makemotionMesh(motion[motiont], material);
 			deco.position.copy(pos);
 			deco.userData.baseColor = colour2;
@@ -917,13 +917,13 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		objects.push(potLight);
 		potLights.push(potLight);
 	} else if (objectType === 'floor') {
-		const floorGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.5, objectWidth + 0.5);
+		const floorGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.175, objectWidth + 0.5);
 		const floor = createSolid(pos.x, pos.y, pos.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, color, floorGeometry);
 		floor.userData.baseColor = color;
 		floor.userData.type = objectType;
 		floor.userData.networkId = details.id;
 	} else if (objectType === 'ceiling') {
-		const ceilingGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.5, objectWidth + 0.5);
+		const ceilingGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.175, objectWidth + 0.5);
 		const ceiling = createSolid(pos.x, pos.y, pos.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, color, ceilingGeometry);
 		ceiling.userData.baseColor = color;
 		ceiling.userData.type = objectType;
@@ -972,7 +972,17 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		scene.add(deco);
 	}
 }
-
+function checkForCollisions(boxGeometry, position) {
+	for (const object of objects) {
+		if (!object.geometry) continue;
+		const objectBox = new THREE.Box3().setFromObject(object);
+		const testBox = new THREE.Box3().setFromCenterAndSize(position, boxGeometry.parameters);
+		if (objectBox.intersectsBox(testBox)) {
+			return true;
+		}
+	}
+	return false;
+}
 socket.addEventListener('message', (event) => {
 	try {
 		const packet = JSON.parse(event.data);
@@ -1009,20 +1019,20 @@ document.addEventListener('keydown', (e) => {
 	idleTime = 0
 	const key = e.key.toLowerCase();
 	keys[key] = true;
-	if(key === 'r') {
+	if (key === 'r') {
 		if (obj === 'statics' || obj === 'motion') {
 			staticsRot = (staticsRot + 1) % 4;
 		} else {
 			rot = !rot;
 		}
 	}
-	if(key === ' ') {
+	if (key === ' ') {
 		toggle = !toggle;
 	}
-	if(e.key === '1') {
+	if (e.key === '1') {
 		obj = 'wall';
 	}
-	if(e.key === '2') {
+	if (e.key === '2') {
 		obj = 'light';
 	}
 	if (e.key === '3') {
@@ -1049,44 +1059,44 @@ document.addEventListener('keydown', (e) => {
 	if (e.key == '0') {
 		obj = 'colourpicker'
 	}
-	if(e.key === ']') {
-		if(obj == 'statics') {
+	if (e.key === ']') {
+		if (obj == 'statics') {
 			staticst = (staticst + 1) % statics.length;
 		}
-		if(obj == 'motion') {
+		if (obj == 'motion') {
 			motiont = (motiont + 1) % motion.length;
 		}
 	}
-	if(e.key == '[') {
-		if(obj == 'statics') {
+	if (e.key == '[') {
+		if (obj == 'statics') {
 			staticst = (staticst - 1 + statics.length) % statics.length;
 		}
-		if(obj == 'motion') {
+		if (obj == 'motion') {
 			motiont = (motiont - 1 + motion.length) % motion.length;
 		}
 	}
-	if(key === 'e') {
+	if (key === 'e') {
 		width += 0.5;
 	}
-	if(key === 'q') {
-		if(width > 0.5) {
+	if (key === 'q') {
+		if (width > 0.5) {
 			width -= 0.5;
 		}
 	}
-	if(key === 'l') {
+	if (key === 'l') {
 		if (hue == 1) {
 			const [h, s, v] = hexToHsl(colour2);
 			hue = 0;
 			colour2 = hslToHex(h, 0, v);
 		} else {
-			const [h,s,v] = hexToHsl(colour2)
+			const [h, s, v] = hexToHsl(colour2)
 			hue = 1
 			colour2 = hslToHex(h, 100, v)
 		}
 	}
-	if(key === 'm') {
+	if (key === 'm') {
 		let [h, s, v] = hexToHsl(colour2)
-		if(hue == 1) {
+		if (hue == 1) {
 			console.log('hue')
 			return;
 		} else {
@@ -1095,10 +1105,10 @@ document.addEventListener('keydown', (e) => {
 			colour2 = hslToHex(h, s, v)
 		}
 	}
-	if(key === ',') {
+	if (key === ',') {
 		camera.position.y += 3
 	}
-	if(key === '.') {
+	if (key === '.') {
 		camera.position.y -= 3
 	}
 	if (key === 'z') {
@@ -1116,6 +1126,7 @@ document.addEventListener('keydown', (e) => {
 	if (key === 'k') {
 		place()
 	}
+	moveHitbox()
 	sendPlayerPosition();
 });
 document.addEventListener('keyup', (e) => {
@@ -1131,11 +1142,11 @@ document.addEventListener('click', () => {
 });
 let modes = ['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion', 'delete', 'colourpicker'];
 let statics = ['chair', 'table', 'stair', 'stairs', 'bench', 'stool', 'rug', 'lamp', 'sofa', 'bed', 'bookshelf', 'poster', 'vase', 'curtain'];
-let motion = ['cabinet', 'shelf', 'desk', 'piano', 'wardrobe', 'clock', 'candle', ];
-preloadstaticsModel('stair', './models/stair.glb',   { x: 1, y: 0.75, z: 1});
-preloadstaticsModel('chair', './models/chair.glb',   { x: 0.7, y: 0.7, z: 0.7 });
-preloadstaticsModel('table', './models/table.glb',   { x: 1, y: 0.6, z: 1 });
-preloadstaticsModel('stairs', './models/stairs.glb', { x: 1, y: 0.75, z: 1})
+let motion = ['cabinet', 'shelf', 'desk', 'piano', 'wardrobe', 'clock', 'candle',];
+preloadstaticsModel('stair', './models/stair.glb', { x: 1, y: 0.75, z: 1 });
+preloadstaticsModel('chair', './models/chair.glb', { x: 0.7, y: 0.7, z: 0.7 });
+preloadstaticsModel('table', './models/table.glb', { x: 1, y: 0.6, z: 1 });
+preloadstaticsModel('stairs', './models/stairs.glb', { x: 1, y: 0.75, z: 1 })
 let time = Date.now();
 document.addEventListener('contextmenu', (e) => {
 	e.preventDefault();
@@ -1217,48 +1228,52 @@ function animate() {
 		}
 	}
 	sprint = false
-	if(keys['shift']) moveSpeed = 3; else moveSpeed = 1;
+	if (keys['shift']) moveSpeed = 3; else moveSpeed = 1;
 	let diag = (.0707 / 2) * moveSpeed
-	if(keys['w']) {
+	if (keys['w']) {
 		const direction = new THREE.Vector3(0, 0, sprint ? -3 : -1).applyQuaternion(camera.quaternion);
 		direction.y = 0;
 		direction.normalize();
 		camera.position.add(((keys['a'] && !keys['d']) || keys['d'] && !keys['a'] ? direction.multiplyScalar(diag) : direction.multiplyScalar(0.05 * moveSpeed)));
 		sendPlayerPosition();
 	}
-	if(keys['s']) {
+	if (keys['s']) {
 		const direction = new THREE.Vector3(0, 0, sprint ? 3 : 1).applyQuaternion(camera.quaternion);
 		direction.y = 0;
 		direction.normalize();
 		camera.position.add(((keys['a'] && !keys['d']) || keys['d'] && !keys['a'] ? direction.multiplyScalar(diag) : direction.multiplyScalar(0.05 * moveSpeed)));
 		sendPlayerPosition();
 	}
-	if(keys['a']) {
+	if (keys['a']) {
 		camera.position.add((keys['w'] && !keys['s'] || keys['s'] && !keys['w'] ? new THREE.Vector3(-diag, 0, 0) : new THREE.Vector3(-0.05 * moveSpeed, 0, 0)).applyQuaternion(camera.quaternion));
 		sendPlayerPosition();
 	}
-	if(keys['d']) {
+	if (keys['d']) {
 		camera.position.add((keys['w'] && !keys['s'] || keys['s'] && !keys['w'] ? new THREE.Vector3(diag, 0, 0) : new THREE.Vector3(0.05 * moveSpeed, 0, 0)).applyQuaternion(camera.quaternion));
 		sendPlayerPosition();
 	}
+	const myPlayer = new THREE.BoxGeometry(0.7, 1.8, 0.7);
+	myPlayer.position = camera.position.clone();
+	console.log(checkForCollisions(myPlayer, camera.position))
 	moveHitbox()
-	if(toggle) {
+	if (toggle) {
 		ghostObject();
 	}
 	const gamnam = 'phantomful'
 	if (idleTime == 3000) console.log('You are now Idle');
 	let action = toggle ? 'building' : 'wandering'
-	document.title = idleTime >= 3000 ? `${gamnam} - Idle` : `${gamnam} - ${obj == 'delete' ? 'deleting' : action} ${
-		action == 'wandering' ? '' : modes.indexOf(obj) < 6 ? `a ${obj}` : obj == 'delete' ? '' : obj
-	}`
+	document.title = idleTime >= 3000 ? `${gamnam} - Idle` : `${gamnam} - ${obj == 'delete' ? 'deleting' : action} ${action == 'wandering' ? '' : modes.indexOf(obj) < 6 ? `a ${obj}` : obj == 'delete' ? '' : obj
+		}`
 	document.getElementById("placement").innerHTML = obj == modes[0] ? "Placing Walls" : obj == modes[1] ? "Placing Lights" : obj == modes[2] ? "Placing Floors" : obj == modes[3] ? "Placing Ceilings" : obj == modes[4] ? "Placing Doors" : obj == modes[5] ? "Placing Windows" : obj == modes[6] && statics[staticst] == 'chair' ? "Placing Chairs" : obj == modes[6] && statics[staticst] == 'table' ? "Placing Tables" : obj == modes[6] && (statics[staticst] == 'stair' || statics[staticst] == 'stairs') ? "Placing Stairs" : obj == modes[6] ? "i didnt maek these yet awawa" : obj == modes[7] ? "these just straight up dont work sry" : obj == modes[8] ? "Deleting" : obj == modes[9] ? "yea nah im too lazy for ts" : "this text shouldnt even be showing rn whaaaaa"
 	if (!toggle) document.getElementById("placement-type").style.display = 'none'; else document.getElementById("placement-type").style.display = 'block';
 	idleTime++
 	document.getElementById("coordinates").innerHTML = `
-		X: ${camera.position.x.toFixed(2)},<br> Y: ${camera.position.y.toFixed(2)},<br> Z: ${camera.position.z.toFixed(2)} <br>
-		Total Objects: ${objects.length} <br>
-		Players: ${remotePlayers.size + 1} <br>
-		Lights: ${lights.length} <br>
+		X: ${camera.position.x.toFixed(2)},<br> 
+		Y: ${camera.position.y.toFixed(2)},<br> 
+		Z: ${camera.position.z.toFixed(2)}, <br>
+		Total Objects: ${objects.length}, <br>
+		Players: ${remotePlayers.size + 1}, <br>
+		Lights: ${lights.length}, <br>
 	`;
 	renderer.render(scene, camera);
 }
