@@ -1,6 +1,12 @@
+
+
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+let username = '';
+let playerColor = 0xff5555;
+let gameStarted = false;
 const scene = new THREE.Scene();
 const dist2 = 200;
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, dist2);
@@ -595,6 +601,13 @@ function updateRemotePlayer(packet) {
 		scene.add(player);
 	}
 
+	const remoteColor = packet.playerColor ?? packet.color;
+	if (Number.isInteger(remoteColor) && remoteColor >= 0 && remoteColor <= 0xffffff) {
+		player.material.color.setHex(remoteColor);
+	} else if (typeof remoteColor === 'string' && /^#?[0-9a-f]{6}$/i.test(remoteColor)) {
+		player.material.color.setHex(Number.parseInt(remoteColor.replace(/^#/, ''), 16));
+	}
+	player.userData.username = typeof packet.username === 'string' ? packet.username : '';
 	player.position.set(x, y - 0.8, z);
 	player.rotation.y = Number.isFinite(packet.rotation) ? packet.rotation : 0;
 }
@@ -613,25 +626,33 @@ const socketUrl = serverOverride || (isLocalHost
 	? `ws://${window.location.hostname || 'localhost'}:3000`
 	: 'wss://phantomful.onrender.com');
 console.log(`Connecting to placement server: ${socketUrl}`);
-const socket = new WebSocket(socketUrl);
+let socket;
 const pendingPackets = [];
-socket.addEventListener('open', () => {
-	while (pendingPackets.length > 0) {
-		socket.send(JSON.stringify(pendingPackets.shift()));
-	}
-	console.log(`Connected to placement server: ${socketUrl}`);
-	sendPlayerPosition();
-});
+function connectToServer() {
+	socket = new WebSocket(socketUrl);
+	socket.addEventListener('open', () => {
+		while (pendingPackets.length > 0) {
+			socket.send(JSON.stringify(pendingPackets.shift()));
+		}
+		console.log(`Connected to placement server: ${socketUrl}`);
+		sendPlayerPosition();
+	});
 
-socket.addEventListener('close', (event) => {
-	console.log(`Placement server disconnected (code ${event.code})`);
-});
+	socket.addEventListener('close', (event) => {
+		console.log(`Placement server disconnected (code ${event.code})`);
+	});
 
-socket.addEventListener('error', (error) => {
-	console.error(`Placement server connection failed: ${socketUrl}`, error);
-});
+	socket.addEventListener('error', (error) => {
+		console.error(`Placement server connection failed: ${socketUrl}`, error);
+	});
+	socket.addEventListener('message', handleServerMessage);
+}
 
 function sendPacket(packet) {
+	if (!socket) {
+		console.error('Could not send packet before connecting to the placement server:', packet.type);
+		return false;
+	}
 	if (socket.readyState === WebSocket.CONNECTING) {
 		pendingPackets.push(packet);
 		return true;
@@ -650,13 +671,17 @@ function sendPlayerPosition() {
 		type: 'playerPosition',
 		position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
 		rotation: camera.rotation.y,
+		username,
+		playerColor,
+		color: playerColor,
 	});
 }
 //|||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 
 function removePlacedObject(object, notifyServer = false) {
 	if (!object) return;
-	if (notifyServer && object.userData.networkId) {
+	const undoRecord = undoRecords.get(object.userData.networkId);
+	if (notifyServer && object.userData.networkId && !undoRecord?.localOnly) {
 		sendPacket({ type: 'deleteObject', id: object.userData.networkId });
 	}
 	if (object.userData.light) {
@@ -671,7 +696,127 @@ function removePlacedObject(object, notifyServer = false) {
 	if (lightIndex !== -1) potLights.splice(lightIndex, 1);
 }
 
+const undoStorageKey = 'scene_undo_history';
+const undoHistoryLimit = 100;
+const undoHistory = [];
+const undoRecords = new Map();
+const undoableObjectTypes = ['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion'];
+
+function isUndoRecord(record) {
+	return record &&
+		typeof record.id === 'string' &&
+		undoableObjectTypes.includes(record.objectType) &&
+		record.position &&
+		Number.isFinite(record.position.x) &&
+		Number.isFinite(record.position.y) &&
+		Number.isFinite(record.position.z) &&
+		Number.isFinite(record.color);
+}
+
+try {
+	const savedHistory = JSON.parse(localStorage.getItem(undoStorageKey) ?? '[]');
+	if (Array.isArray(savedHistory)) {
+		savedHistory.slice(-undoHistoryLimit).forEach((action) => {
+			if (
+				action &&
+				Array.isArray(action.added) &&
+				Array.isArray(action.removed) &&
+				action.added.every(isUndoRecord) &&
+				action.removed.every(isUndoRecord)
+			) {
+				undoHistory.push(action);
+			}
+		});
+	} else {
+		throw new TypeError('why did this happen');
+	}
+} catch (error) {
+	console.error('just straight up didnt work idek y:', error);
+}
+
+function persistUndoHistory() {
+	try {
+		localStorage.setItem(undoStorageKey, JSON.stringify(undoHistory));
+		return true;
+	} catch (error) {
+		console.error('wow:', error);
+		return false;
+	}
+}
+
+function pruneUndoRecords() {
+	const retainedIds = new Set(objects.map((object) => object.userData.networkId));
+	undoHistory.forEach((action) => {
+		action.added.concat(action.removed).forEach((record) => retainedIds.add(record.id));
+	});
+	undoRecords.forEach((record, id) => {
+		if (!retainedIds.has(id)) undoRecords.delete(id);
+	});
+}
+
+function snapshotPlacedObjects() {
+	return objects
+		.map((object) => undoRecords.get(object.userData.networkId))
+		.filter(Boolean)
+		.map((record) => JSON.parse(JSON.stringify(record)));
+}
+
+function recordUndoAction(before) {
+	const after = snapshotPlacedObjects();
+	const beforeById = new Map(before.map((record) => [record.id, record]));
+	const afterById = new Map(after.map((record) => [record.id, record]));
+	const added = after.filter((record) => !beforeById.has(record.id));
+	const removed = before.filter((record) => !afterById.has(record.id));
+	if (added.length === 0 && removed.length === 0) return;
+
+	undoHistory.push({ added, removed });
+	if (undoHistory.length > undoHistoryLimit) undoHistory.shift();
+	persistUndoHistory();
+	pruneUndoRecords();
+}
+
+function runTrackedAction(action) {
+	const before = snapshotPlacedObjects();
+	try {
+		action();
+	} finally {
+		recordUndoAction(before);
+	}
+}
+
+function undoLastAction(count = 1) {
+	let undone = 0;
+	while (undone < count && undoHistory.length > 0) {
+		const action = undoHistory[undoHistory.length - 1];
+		const currentIds = new Set(objects.map((object) => object.userData.networkId));
+		action.added.forEach((record) => {
+			const object = objects.find((entry) => entry.userData.networkId === record.id);
+			if (object) removePlacedObject(object, !record.localOnly);
+		});
+		action.removed.forEach((record) => {
+			if (currentIds.has(record.id)) return;
+			addObjAtPosition(record.position, record.objectType, record.color, record);
+			if (!record.localOnly) sendPacket(record);
+		});
+
+		undoHistory.pop();
+		undone++;
+	}
+
+	if (undone === 0) {
+		showCommandOutput('do smth first');
+		return;
+	}
+	persistUndoHistory();
+	pruneUndoRecords();
+	showCommandOutput(`undid ${undone} action${undone === 1 ? '' : 's'}`);
+}
+
 function place() {
+	runTrackedAction(placeObject);
+}
+
+function placeObject() {
 	if (toggle) {
 		if (obj === modes[0]) {
 			const pos = getPlacementPosition('wall');
@@ -876,14 +1021,16 @@ function place() {
 }
 function sendObjToServer(objectType, position, color, details = {}) {
 	const id = crypto.randomUUID();
-	sendPacket({
+	const record = {
 		type: 'placeObject',
 		objectType,
 		position: { x: position.x, y: position.y, z: position.z },
 		color,
 		...details,
 		id,
-	});
+	};
+	undoRecords.set(id, record);
+	sendPacket(record);
 	return id;
 }
 let fps = 0;
@@ -904,13 +1051,23 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 	const pos = new THREE.Vector3(position.x, position.y, position.z);
 	const objectWidth = details.width ?? width;
 	const objectRotation = details.rotation ?? false;
+	const id = details.id ?? crypto.randomUUID();
+	const record = {
+		type: 'placeObject',
+		...details,
+		objectType,
+		position: { x: pos.x, y: pos.y, z: pos.z },
+		color,
+		id,
+	};
+	undoRecords.set(id, record);
 	if (objectType === 'wall') {
 		const wallGeometry = objectRotation
 			? new THREE.BoxGeometry(0.5, 3, objectWidth + 0.5)
 			: new THREE.BoxGeometry(objectWidth + 0.5, 3, 0.5);
 		const wall = createSolid(pos.x, pos.y, pos.z, wallGeometry.parameters.width, wallGeometry.parameters.height, wallGeometry.parameters.depth, color, wallGeometry);
 		wall.userData.type = objectType;
-		wall.userData.networkId = details.id;
+		wall.userData.networkId = id;
 	} else if (objectType === 'light') {
 		const light = new THREE.PointLight(color, 1.5, 20);
 		light.position.copy(pos);
@@ -922,7 +1079,7 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		potLight.position.copy(pos);
 		potLight.userData.baseColor = color;
 		potLight.userData.type = objectType;
-		potLight.userData.networkId = details.id;
+		potLight.userData.networkId = id;
 		scene.add(potLight);
 		potLight.userData.light = light;
 		light.userData.visual = potLight;
@@ -933,19 +1090,19 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		const floor = createSolid(pos.x, pos.y, pos.z, floorGeometry.parameters.width, floorGeometry.parameters.height, floorGeometry.parameters.depth, color, floorGeometry);
 		floor.userData.baseColor = color;
 		floor.userData.type = objectType;
-		floor.userData.networkId = details.id;
+		floor.userData.networkId = id;
 	} else if (objectType === 'ceiling') {
 		const ceilingGeometry = new THREE.BoxGeometry(objectWidth + 0.5, 0.175, objectWidth + 0.5);
 		const ceiling = createSolid(pos.x, pos.y, pos.z, ceilingGeometry.parameters.width, ceilingGeometry.parameters.height, ceilingGeometry.parameters.depth, color, ceilingGeometry);
 		ceiling.userData.baseColor = color;
 		ceiling.userData.type = objectType;
-		ceiling.userData.networkId = details.id;
+		ceiling.userData.networkId = id;
 	} else if (objectType === 'door') {
 		const door = createDoorMesh(new THREE.MeshPhongMaterial({ color, shininess: 60 }), objectWidth, objectRotation);
 		door.position.copy(pos);
 		door.userData.baseColor = color;
 		door.userData.type = objectType;
-		door.userData.networkId = details.id;
+		door.userData.networkId = id;
 		objects.push(door);
 		scene.add(door);
 	} else if (objectType === 'window') {
@@ -953,7 +1110,7 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		windowMesh.position.copy(pos);
 		windowMesh.userData.baseColor = color;
 		windowMesh.userData.type = objectType;
-		windowMesh.userData.networkId = details.id;
+		windowMesh.userData.networkId = id;
 		objects.push(windowMesh);
 		scene.add(windowMesh);
 	} else if (objectType === 'statics') {
@@ -966,7 +1123,7 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		mesh.userData.placementPos = pos.clone();
 		mesh.userData.baseColor = color;
 		mesh.userData.deletePreview = false;
-		mesh.userData.networkId = details.id;
+		mesh.userData.networkId = id;
 		mesh.position.y += poss[variant] ?? 0;
 		objects.push(mesh);
 		scene.add(mesh);
@@ -979,7 +1136,7 @@ function addObjAtPosition(position, objectType, color, details = {}) {
 		deco.userData.baseColor = color;
 		deco.userData.type = objectType;
 		deco.userData.deletePreview = false;
-		deco.userData.networkId = details.id;
+		deco.userData.networkId = id;
 		objects.push(deco);
 		scene.add(deco);
 	}
@@ -995,7 +1152,7 @@ function checkForCollisions(boxGeometry, position) {
 	}
 	return false;
 }
-socket.addEventListener('message', (event) => {
+function handleServerMessage(event) {
 	try {
 		const packet = JSON.parse(event.data);
 		if (packet.type === 'placeObject') {
@@ -1017,14 +1174,33 @@ socket.addEventListener('message', (event) => {
 		} else if (packet.type === 'playerLeft') {
 			removeRemotePlayer(packet.playerId);
 			console.log(`Another player left (${packet.playerCount} connected)`);
+		} else if (packet.type === 'kicked') {
+			showCommandOutput(packet.message || 'You were kicked from the server.');
+		} else if (packet.type === 'kickAllResult') {
+			showCommandOutput(`Kicked ${packet.kickedPlayers} player(s).`);
 		}
 	}
 	catch (error) {
 		console.error('Error handling placement packet:', error);
 	}
-});
+}
 
 document.addEventListener('keydown', (e) => {
+	if (!gameStarted) return;
+	if (!commands.hidden) {
+		if (e.key === 'Escape' || (e.key.toLowerCase() === 'n' && e.target !== commandInput)) {
+			commands.hidden = true;
+			commandInput.blur();
+		}
+		return;
+	}
+	if (e.key.toLowerCase() === 'n' && !(e.target instanceof HTMLInputElement)) {
+		e.preventDefault();
+		commands.hidden = false;
+		if (document.pointerLockElement) document.exitPointerLock();
+		commandInput.focus();
+		return;
+	}
 	if (idleTime >= 3000) {
 		console.log("You are no longer idle")
 	}
@@ -1109,11 +1285,9 @@ document.addEventListener('keydown', (e) => {
 	if (key === 'm') {
 		let [h, s, v] = hexToHsl(colour2)
 		if (hue == 1) {
-			console.log('hue')
 			return;
 		} else {
 			v = v == 100 ? 0 : v == 0 ? 50 : 100
-			console.log(h, s, v)
 			colour2 = hslToHex(h, s, v)
 		}
 	}
@@ -1142,16 +1316,144 @@ document.addEventListener('keydown', (e) => {
 	sendPlayerPosition();
 });
 document.addEventListener('keyup', (e) => {
+	if (!gameStarted) return;
 	const key = e.key.toLowerCase();
 	keys[key] = false;
 	idleTime = 0
 });
-document.addEventListener('click', () => {
+document.addEventListener('click', (event) => {
+	if (!gameStarted) return;
+	if (event.target instanceof Element && event.target.closest('#csv, #commands')) return;
 	if (mouseX > 50 || mouseY > 390) {
 		document.body.requestPointerLock();
 	}
 	place()
 });
+const commands = document.getElementById('commands');
+const commandForm = document.getElementById('command-form');
+const commandInput = document.getElementById('command-input');
+const commandOutput = document.getElementById('command-output');
+function showCommandOutput(message) {
+	commandOutput.textContent = message;
+}
+commandForm.addEventListener('submit', (event) => {
+	event.preventDefault();
+	const input = commandInput.value.trim();
+	commandInput.value = '';
+
+	if (!input.startsWith('/')) {
+		showCommandOutput('command must start with a /');
+		return;
+	}
+
+	const requiresDoubleSlash = input.startsWith('//');
+	const [commandName = '', ...args] = input.slice(requiresDoubleSlash ? 2 : 1).trim().split(/\s+/).filter(Boolean);
+	const command = commandName.toLowerCase();
+	if (!command) {
+		showCommandOutput('enter a command');
+	} else if (command === 'help') {
+		showCommandOutput('Commands: /help, /save, /load, /clear, /undo [number|all], /hideplayers, /showplayers, //kickall');
+	} else if (command === 'save') {
+		exportToCSV();
+	} else if (command === 'load') {
+		importFromCSV();
+	} else if (command === 'clear') {
+		runTrackedAction(() => {
+			for (let i = objects.length - 1; i >= 0; i--) {
+				removePlacedObject(objects[i], true);
+			}
+		});
+		showCommandOutput('Cleared the scene.');
+	} else if (command === 'undo') {
+		if (args.length > 1) {
+			showCommandOutput('usage: /undo [positive number|all]');
+		} else if (args.length === 0) {
+			undoLastAction();
+		} else if (args[0].toLowerCase() === 'all') {
+			undoLastAction(undoHistory.length);
+		} else {
+			const count = Number(args[0]);
+			if (!Number.isSafeInteger(count) || count < 1) {
+				showCommandOutput('usage: /undo [positive number|all]');
+			} else {
+				undoLastAction(count);
+			}
+		}
+	} else if (command === 'kickall' && requiresDoubleSlash) {
+		if (args.length > 0) {
+			showCommandOutput('usage: //kickall');
+			return;
+		}
+		if (!sendPacket({ type: 'kickAll' })) {
+			showCommandOutput('no internet');
+		} else {
+			showCommandOutput('kicking');
+		}
+	} else if (command === 'hideplayers') {
+		remotePlayers.forEach((player) => {
+			player.visible = false;
+		});
+		showCommandOutput('players hidden');
+	} else if (command === 'showplayers') {
+		remotePlayers.forEach((player) => {
+			player.visible = true;
+		});
+		showCommandOutput('players shown');
+	} else {
+		showCommandOutput(`doesnt work: ${requiresDoubleSlash ? '//' : '/'}${command}`);
+	}
+});
+const csvStorageKey = 'scene_export.csv';
+function exportToCSV() {
+	const csvData = objects.map((object) => {
+		const pos = object.position;
+		const color = object.userData.baseColor ?? 0xffffff;
+		const type = object.userData.type ?? 'unknown';
+		const rotation = object.userData.rotation ?? 0;
+		return `${pos.x},${pos.y},${pos.z},${color.toString(16)},${type},${rotation}`;
+	}).join('\n');
+
+	try {
+		localStorage.setItem(csvStorageKey, csvData);
+		showCommandOutput('saved');
+	} catch (error) {
+		console.error('couldnt save:', error);
+		showCommandOutput('couldnt save');
+	}
+}
+function importFromCSV() {
+	let csvData;
+	try {
+		csvData = localStorage.getItem(csvStorageKey);
+	} catch (error) {
+		console.error('doesnt exist:', error);
+		showCommandOutput('nothin there');
+		return;
+	}
+
+	if (csvData === null) {
+		showCommandOutput('nothin there');
+		return;
+	}
+
+	runTrackedAction(() => {
+		csvData.split(/\r?\n/).forEach((line) => {
+			if (!line.trim()) return;
+			const [x, y, z, colorHex, type, rotation] = line.split(',');
+			const coordinates = [x, y, z].map(Number);
+			const color = Number.parseInt(colorHex, 16);
+			if (coordinates.some((value) => !Number.isFinite(value)) || !Number.isFinite(color) || !type) {
+				console.warn('Skipping invalid CSV row:', line);
+				return;
+			}
+			const pos = new THREE.Vector3(...coordinates);
+			addObjAtPosition(pos, type, color, { rotation: Number.parseInt(rotation, 10) || 0, localOnly: true });
+		});
+	});
+	showCommandOutput('Saved CSV loaded.');
+}
+document.getElementById('save').addEventListener('click', exportToCSV);
+document.getElementById('load').addEventListener('click', importFromCSV);
 let modes = ['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion', 'delete', 'colourpicker'];
 let statics = ['chair', 'table', 'stair', 'stairs', 'bench', 'stool', 'rug', 'lamp', 'sofa', 'bed', 'bookshelf', 'poster', 'vase', 'curtain'];
 let motion = ['cabinet', 'shelf', 'desk', 'piano', 'wardrobe', 'clock', 'candle',];
@@ -1159,8 +1461,8 @@ preloadstaticsModel('stair', './models/stair.glb', { x: 1, y: 0.75, z: 1 });
 preloadstaticsModel('chair', './models/chair.glb', { x: 0.7, y: 0.7, z: 0.7 });
 preloadstaticsModel('table', './models/table.glb', { x: 1, y: 0.6, z: 1 });
 preloadstaticsModel('stairs', './models/stairs.glb', { x: 1, y: 0.75, z: 1 })
-let time = Date.now();
 document.addEventListener('contextmenu', (e) => {
+	if (!gameStarted) return;
 	e.preventDefault();
 	state = (state + 1) % modes.length;
 	obj = modes[state];
@@ -1168,6 +1470,7 @@ document.addEventListener('contextmenu', (e) => {
 let mouseX, mouseY;
 //50, 390
 document.addEventListener('mousemove', (e) => {
+	if (!gameStarted) return;
 	mouseX = e.clientX;
 	mouseY = e.clientY;
 	if (document.pointerLockElement === document.body) {
@@ -1181,6 +1484,7 @@ document.addEventListener('mousemove', (e) => {
 });
 let state = 1
 document.addEventListener('wheel', (e) => {
+	if (!gameStarted) return;
 	const [h, s, l] = hexToHsl(colour2);
 	if (hue == 1) {
 		const step = 3;
@@ -1191,7 +1495,6 @@ document.addEventListener('wheel', (e) => {
 		const newLevel = (l + (e.deltaY < 0 ? step : -step) + 100) % 100;
 		colour2 = hslToHex(h, 0, newLevel);
 	}
-	console.log(colour2)
 	document.getElementById('crosshair').style.backgroundColor = `#${(colour2 & 0xFFFFFF).toString(16).padStart(6, '0')}`;
 });
 document.getElementById('crosshair').style.backgroundColor = `#${(colour2 & 0xFFFFFF).toString(16).padStart(6, '0')}`;
@@ -1204,6 +1507,7 @@ keys['shift'] = false
 let ver = '0.36'
 document.getElementById('version').innerHTML = `v${ver}`
 function animate(timestamp) {
+	if (!gameStarted) return;
 	requestAnimationFrame(animate);
 	updatePotLightVisibility();
 	updateGhostLightVisibility();
@@ -1268,7 +1572,6 @@ function animate(timestamp) {
 	}
 	const myPlayer = new THREE.BoxGeometry(0.7, 1.8, 0.7);
 	myPlayer.position = camera.position.clone();
-	console.log(checkForCollisions(myPlayer, camera.position))
 	moveHitbox()
 	if (toggle) {
 		ghostObject();
@@ -1292,4 +1595,29 @@ function animate(timestamp) {
 	`;
 	renderer.render(scene, camera);
 }
-animate();
+const startScreen = document.getElementById('start-screen');
+const startForm = document.getElementById('start-form');
+const usernameInput = document.getElementById('username-input');
+const playerColorInput = document.getElementById('player-color-input');
+const playerPreview = document.getElementById('player-preview');
+
+playerPreview.style.backgroundColor = playerColorInput.value;
+playerColorInput.addEventListener('input', () => {
+	playerPreview.style.backgroundColor = playerColorInput.value;
+});
+
+startForm.addEventListener('submit', (event) => {
+	event.preventDefault();
+	username = usernameInput.value.trim();
+	if (!username) {
+		usernameInput.focus();
+		return;
+	}
+	username = username.slice(0, 20);
+	playerColor = Number.parseInt(playerColorInput.value.slice(1), 16);
+	gameStarted = true;
+	document.body.classList.add('game-started');
+	startScreen.hidden = true;
+	connectToServer();
+	requestAnimationFrame(animate);
+});

@@ -15,6 +15,16 @@ const placedObjects = [];
 const playerPositions = new Map();
 let activePlayers = 0;
 
+function normalizePlayerColor(color) {
+  if (Number.isInteger(color) && color >= 0 && color <= 0xffffff) {
+    return color;
+  }
+  if (typeof color === 'string' && /^#?[0-9a-f]{6}$/i.test(color)) {
+    return Number.parseInt(color.replace(/^#/, ''), 16);
+  }
+  return 0xff5555;
+}
+
 function broadcastPresence(packet, excludedSocket) {
   const message = JSON.stringify(packet);
   for (const client of wss.clients) {
@@ -58,8 +68,29 @@ wss.on('connection', (socket) => {
       socket.send(JSON.stringify({ type: 'error', message: 'Packet must be valid JSON.' }));
       return;
     }
-
-    if (packet.type === 'playerPosition') {
+    if (packet.type === 'kickAll') {
+      let kickedPlayers = 0;
+      for (const client of wss.clients) {
+        if (client !== socket && client.readyState === WebSocket.OPEN) {
+          kickedPlayers += 1;
+          client.send(
+            JSON.stringify({ type: 'kicked', message: 'You have been kicked by another player.' }),
+            (error) => {
+              if (error) {
+                client.terminate();
+                return;
+              }
+              client.close(4001, 'Kicked by another player');
+            }
+          );
+        }
+      }
+      console.log(`Kicking ${kickedPlayers} player(s) at the request of ${socket.playerId}`);
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'kickAllResult', kickedPlayers }));
+      }
+      return;
+    } else if (packet.type === 'playerPosition') {
       const { position, rotation } = packet;
       if (
         !position ||
@@ -73,7 +104,10 @@ wss.on('connection', (socket) => {
       const state = {
         position: { x: position.x, y: position.y, z: position.z },
         rotation: Number.isFinite(rotation) ? rotation : 0,
+        username: typeof packet.username === 'string' ? packet.username.trim().slice(0, 20) : '',
+        playerColor: normalizePlayerColor(packet.playerColor ?? packet.color),
       };
+      state.color = state.playerColor;
       playerPositions.set(socket.playerId, state);
       broadcastPresence({ type: 'playerPosition', playerId: socket.playerId, ...state }, socket);
       return;
