@@ -1452,8 +1452,6 @@ function importFromCSV() {
 	});
 	showCommandOutput('Saved CSV loaded.');
 }
-document.getElementById('save').addEventListener('click', exportToCSV);
-document.getElementById('load').addEventListener('click', importFromCSV);
 let modes = ['wall', 'light', 'floor', 'ceiling', 'door', 'window', 'statics', 'motion', 'delete', 'colourpicker'];
 let statics = ['chair', 'table', 'stair', 'stairs', 'bench', 'stool', 'rug', 'lamp', 'sofa', 'bed', 'bookshelf', 'poster', 'vase', 'curtain'];
 let motion = ['cabinet', 'shelf', 'desk', 'piano', 'wardrobe', 'clock', 'candle',];
@@ -1593,6 +1591,8 @@ function animate(timestamp) {
 		Lights: ${lights.length}, <br>
 		Fps: ${getFps(timestamp)}
 	`;
+	document.getElementById("player-name").innerHTML = `Your username is ${username}`;
+	document.getElementById("player-color-preview").style.backgroundColor = `#${(playerColor & 0xFFFFFF).toString(16).padStart(6, '0')}`;
 	renderer.render(scene, camera);
 }
 const startScreen = document.getElementById('start-screen');
