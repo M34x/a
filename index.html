@@ -68,11 +68,17 @@
             max-width: min(420px, 90vw);
             font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
         }
-        #placement-type {
+        #top-right-info {
             position: fixed;
             top: 3px;
             right: 3px;
             z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
+        #placement-type {
             background-color: burlywood;
             text-align: left;
             color: black;
@@ -138,10 +144,6 @@
             padding: 5px;
         }
         #playerinfo {
-            position: fixed;
-            right: 3px;
-            top: 3px;
-            z-index: 10;
             background-color: burlywood;
             text-align: center;
             color: black;
@@ -164,14 +166,10 @@
                 <input id="player-color-input" name="playerColor" type="color" value="#ff5555">
             </label>
             <div id="player-preview" aria-label="Player color preview"></div>
-            <button type="submit">commence le building</button>
+            <button type="submit">join serv</button>
         </form>
     </div>
     <div id="crosshair" style="position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; transform: translate(-50%, -50%);"></div>
-    <div id="playerinfo">
-        <h2 id="player-name"></h2>
-        <div id="player-color-preview" style="width: 20px; height: 20px; border: 2px solid black;"></div>
-    </div>
     <div id="controls">
         <h3>
             controls
@@ -217,8 +215,14 @@
             </details>
         </h3>
     </div>
-    <div id="placement-type">
-        <h2 id="placement"></h2>
+    <div id="top-right-info">
+        <div id="playerinfo">
+            <h2 id="player-name"></h2>
+            <div id="player-color-preview" style="width: 20px; height: 20px; border: 2px solid black;"></div>
+        </div>
+        <div id="placement-type">
+            <h2 id="placement"></h2>
+        </div>
     </div>
     <div id="version">version 1.0</div>
     <div id="coordinates"></div>

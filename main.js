@@ -1336,10 +1336,16 @@ const commandOutput = document.getElementById('command-output');
 function showCommandOutput(message) {
 	commandOutput.textContent = message;
 }
+let lastInput = '';
 commandForm.addEventListener('submit', (event) => {
 	event.preventDefault();
 	const input = commandInput.value.trim();
 	commandInput.value = '';
+	if (input != '') {
+		lastInput = input;
+	} else {
+		input = lastInput;
+	}
 
 	if (!input.startsWith('/')) {
 		showCommandOutput('command must start with a /');
