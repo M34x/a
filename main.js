@@ -1358,7 +1358,7 @@ commandForm.addEventListener('submit', (event) => {
 	if (!command) {
 		showCommandOutput('enter a command');
 	} else if (command === 'help') {
-		showCommandOutput('Commands: /help, /save, /load, /clear, /undo [number|all], /hideplayers, /showplayers, //kickall');
+		showCommandOutput('Commands: /save, /load, /clear, /undo [number|all], /hideplayers, /showplayers, //kickall');
 	} else if (command === 'save') {
 		exportToCSV();
 	} else if (command === 'load') {
